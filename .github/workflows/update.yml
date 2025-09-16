@@ -1,4 +1,4 @@
-name: Update ICS
+ame: Update ICS
 
 on:
   schedule:
@@ -10,28 +10,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout
+      # 1️⃣ Checkout le code
       - uses: actions/checkout@v4
 
-      # 2️⃣ Set up Python
+      # 2️⃣ Setup Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # 3️⃣ Install dependencies
+      # 3️⃣ Installer les dépendances
       - name: Install dependencies
         run: pip install requests beautifulsoup4 ics pytz
 
-      # 4️⃣ Run script to generate calendar.ics
+      # 4️⃣ Générer calendar.ics
       - name: Generate ICS
         run: python celcat_to_ics.py
 
-      # 5️⃣ Deploy to gh-pages
+      # 5️⃣ Déployer sur gh-pages
       - name: Deploy calendar.ics to gh-pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GH_PAT }} 
+          github_token: ${{ secrets.GH_PAT }}   # <- utilise ton Personal Access Token ici
           publish_branch: gh-pages
-          publish_dir: ./          # ton calendar.ics doit être à la racine
+          publish_dir: ./          # ./ = racine du repo, là où se trouve calendar.ics
           commit_message: "Update calendar.ics"
