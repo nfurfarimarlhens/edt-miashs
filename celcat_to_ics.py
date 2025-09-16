@@ -4,7 +4,6 @@ from ics import Calendar, Event
 from datetime import datetime
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
-import re
 
 # URL Celcat pour la semaine
 BASE_URL = (
@@ -15,6 +14,10 @@ BASE_URL = (
 
 paris_tz = pytz.timezone("Europe/Paris")
 cal = Calendar()
+
+def escape_text(text):
+    """Échapper les caractères spéciaux pour iCal."""
+    return text.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;")
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
@@ -50,10 +53,10 @@ with sync_playwright() as p:
         if len(lines) < 7:
             continue
 
-        course_code_title = lines[2]
-        groups = ", ".join(lines[3:5])
-        teacher = lines[5]
-        room = lines[6]
+        course_code_title = escape_text(lines[2])
+        groups = escape_text(", ".join(lines[3:5]))
+        teacher = escape_text(lines[5])
+        room = escape_text(lines[6])
 
         event_title = f"{course_code_title} ({groups}) - {teacher} - {room}"
 
@@ -66,17 +69,13 @@ with sync_playwright() as p:
 
     browser.close()
 
-# Sauvegarde ICS avec pliage des lignes >75 caractères et LF uniquement
-with open("calendar.ics", "w", encoding="utf-8", newline="\n") as f:
+# Sauvegarde ICS avec CRLF et pliage correct >75 caractères
+with open("calendar.ics", "w", encoding="utf-8", newline="\r\n") as f:
     for line in cal.serialize_iter():
-        line = re.sub(r"\n", "", line)  # retirer sauts internes
+        line = line.rstrip()
         while len(line) > 75:
-            cut = 75
-            # éviter de couper juste après un backslash (échappement)
-            while cut > 0 and line[cut-1] == "\\":
-                cut -= 1
-            f.write(line[:cut] + "\n ")  # pliage avec espace initial
-            line = line[cut:]
-        f.write(line + "\n")  # fin de ligne LF
+            f.write(line[:75] + "\r\n ")
+            line = line[75:]
+        f.write(line + "\r\n")
 
-print("✅ calendar.ics généré avec DTSTAMP, lignes pliées et LF uniquement !")
+print("✅ calendar.ics généré correctement avec CRLF et pliage RFC 5545 !")
