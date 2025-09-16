@@ -19,7 +19,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
     page.goto(BASE_URL)
-    page.wait_for_timeout(5000)  # attendre 5 secondes que JS charge le calendrier
+    page.wait_for_timeout(5000)  # attendre 5s que JS charge le calendrier
 
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
@@ -32,14 +32,19 @@ with sync_playwright() as p:
         start_str, end_str = time_div["data-full"].split(" - ")
         start_hour, start_minute = map(int, start_str.split(":"))
         end_hour, end_minute = map(int, end_str.split(":"))
-        today = datetime.today()
-        start_dt = paris_tz.localize(
-            datetime(today.year, today.month, today.day, start_hour, start_minute)
-        )
-        end_dt = paris_tz.localize(
-            datetime(today.year, today.month, today.day, end_hour, end_minute)
-        )
 
+        # Récupérer la date exacte depuis data-date du parent
+        parent_day = div.find_parent(attrs={"data-date": True})
+        if parent_day:
+            date_str = parent_day["data-date"]  # format YYYY-MM-DD
+            year, month, day = map(int, date_str.split("-"))
+        else:
+            year, month, day = datetime.today().year, datetime.today().month, datetime.today().day
+
+        start_dt = paris_tz.localize(datetime(year, month, day, start_hour, start_minute))
+        end_dt = paris_tz.localize(datetime(year, month, day, end_hour, end_minute))
+
+        # Extraire info depuis texte
         lines = [line.strip() for line in div.get_text(separator="\n").split("\n") if line.strip()]
         if len(lines) < 7:
             continue
