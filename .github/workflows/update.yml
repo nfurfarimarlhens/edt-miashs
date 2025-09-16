@@ -6,24 +6,32 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout
       - uses: actions/checkout@v4
+
+      # 2️⃣ Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: pip install requests beautifulsoup4 ics pytz
-      - name: Run script
-        run: python generate_ics.py
-      - name: Commit ICS
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add calendar.ics
-          git commit -m "Update calendar.ics" || echo "No changes"
-          git push
 
+      # 4️⃣ Run script to generate calendar.ics
+      - name: Generate ICS
+        run: python celcat_to_ics.py
+
+      # 5️⃣ Deploy to gh-pages
+      - name: Deploy calendar.ics to gh-pages
+        uses: peaceiris/actions-gh-pages@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./          # ton calendar.ics doit être à la racine
+          commit_message: "Update calendar.ics"
