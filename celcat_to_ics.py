@@ -16,19 +16,11 @@ BASE_URL = (
 paris_tz = pytz.timezone("Europe/Paris")
 cal = Calendar()
 
-def escape_ics_text(text: str) -> str:
-    """Échapper les caractères pour ICS : \ , ; et retour à la ligne"""
-    text = text.replace("\\", "\\\\")
-    text = text.replace("\n", "\\n")
-    text = text.replace(",", "\\,")
-    text = text.replace(";", "\\;")
-    return text
-
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
     page.goto(BASE_URL)
-    page.wait_for_timeout(5000)  # attendre JS
+    page.wait_for_timeout(5000)  # attendre 5s que JS charge le calendrier
 
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
@@ -42,10 +34,10 @@ with sync_playwright() as p:
         start_hour, start_minute = map(int, start_str.split(":"))
         end_hour, end_minute = map(int, end_str.split(":"))
 
-        # Récupérer date exacte
+        # Récupérer la date exacte depuis data-date du parent
         parent_day = div.find_parent(attrs={"data-date": True})
         if parent_day:
-            date_str = parent_day["data-date"]  # YYYY-MM-DD
+            date_str = parent_day["data-date"]  # format YYYY-MM-DD
             year, month, day = map(int, date_str.split("-"))
         else:
             year, month, day = datetime.today().year, datetime.today().month, datetime.today().day
@@ -64,28 +56,27 @@ with sync_playwright() as p:
         room = lines[6]
 
         event_title = f"{course_code_title} ({groups}) - {teacher} - {room}"
-        event_title = escape_ics_text(event_title)
 
         e = Event()
         e.name = event_title
         e.begin = start_dt
         e.end = end_dt
-        e.created = datetime.now(pytz.utc)  # DTSTAMP UTC
+        e.created = datetime.now(pytz.utc)  # DTSTAMP obligatoire
         cal.events.add(e)
 
     browser.close()
 
-# Sauvegarde ICS avec pliage des lignes >75 caractères
-with open("calendar.ics", "w", encoding="utf-8", newline="") as f:
+# Sauvegarde ICS avec pliage des lignes >75 caractères et LF uniquement
+with open("calendar.ics", "w", encoding="utf-8", newline="\n") as f:
     for line in cal.serialize_iter():
         line = re.sub(r"\n", "", line)  # retirer sauts internes
         while len(line) > 75:
             cut = 75
-            # éviter de couper après \
+            # éviter de couper juste après un backslash (échappement)
             while cut > 0 and line[cut-1] == "\\":
                 cut -= 1
-            f.write(line[:cut] + "\r\n ")
+            f.write(line[:cut] + "\n ")  # pliage avec espace initial
             line = line[cut:]
-        f.write(line + "\r\n")
+        f.write(line + "\n")  # fin de ligne LF
 
-print("✅ calendar.ics généré, lignes pliées et format correct !")
+print("✅ calendar.ics généré avec DTSTAMP, lignes pliées et LF uniquement !")
