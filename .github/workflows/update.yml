@@ -1,1 +1,29 @@
+name: Update ICS
+
+on:
+  schedule:
+    - cron: "0 3 * * *"  # tous les jours à 3h
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 ics pytz
+      - name: Run script
+        run: python generate_ics.py
+      - name: Commit ICS
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add calendar.ics
+          git commit -m "Update calendar.ics" || echo "No changes"
+          git push
 
