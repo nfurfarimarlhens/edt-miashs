@@ -1,7 +1,7 @@
 # celcat_to_ics.py
 import pytz
 from ics import Calendar, Event
-from datetime import datetime, timedelta
+from datetime import datetime
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
@@ -55,12 +55,17 @@ with sync_playwright() as p:
         e.name = event_title
         e.begin = start_dt
         e.end = end_dt
+        e.created = datetime.now(pytz.utc)  # DTSTAMP obligatoire
         cal.events.add(e)
 
     browser.close()
 
-# Sauvegarde ICS
+# Sauvegarde ICS avec pliage des lignes >75 caractères
 with open("calendar.ics", "w", encoding="utf-8") as f:
-    f.writelines(cal.serialize_iter())
+    for line in cal.serialize_iter():
+        while len(line) > 75:
+            f.write(line[:75] + "\r\n ")
+            line = line[75:]
+        f.write(line + "\r\n")
 
-print("✅ calendar.ics généré avec tous les événements !")
+print("✅ calendar.ics généré avec DTSTAMP et lignes pliées !")
