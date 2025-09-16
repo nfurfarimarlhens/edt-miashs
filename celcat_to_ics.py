@@ -15,11 +15,15 @@ BASE_URL = (
 paris_tz = pytz.timezone("Europe/Paris")
 cal = Calendar()
 
+def escape_ics_text(text: str) -> str:
+    """Échapper les caractères spéciaux pour ICS RFC5545."""
+    return text.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;")
+
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
     page.goto(BASE_URL)
-    page.wait_for_timeout(5000)  # attendre 5s que JS charge le calendrier
+    page.wait_for_timeout(5000)  # attendre 5 secondes que JS charge le calendrier
 
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
@@ -29,17 +33,19 @@ with sync_playwright() as p:
         if not time_div or "data-full" not in time_div.attrs:
             continue
 
+        # Heure de début et fin
         start_str, end_str = time_div["data-full"].split(" - ")
         start_hour, start_minute = map(int, start_str.split(":"))
         end_hour, end_minute = map(int, end_str.split(":"))
 
-        # Récupérer la date exacte depuis data-date du parent
+        # Date exacte depuis parent avec data-date
         parent_day = div.find_parent(attrs={"data-date": True})
         if parent_day:
             date_str = parent_day["data-date"]  # format YYYY-MM-DD
             year, month, day = map(int, date_str.split("-"))
         else:
-            year, month, day = datetime.today().year, datetime.today().month, datetime.today().day
+            today = datetime.today()
+            year, month, day = today.year, today.month, today.day
 
         start_dt = paris_tz.localize(datetime(year, month, day, start_hour, start_minute))
         end_dt = paris_tz.localize(datetime(year, month, day, end_hour, end_minute))
@@ -54,7 +60,7 @@ with sync_playwright() as p:
         teacher = lines[5]
         room = lines[6]
 
-        event_title = f"{course_code_title} ({groups}) - {teacher} - {room}"
+        event_title = escape_ics_text(f"{course_code_title} ({groups}) - {teacher} - {room}")
 
         e = Event()
         e.name = event_title
@@ -65,12 +71,13 @@ with sync_playwright() as p:
 
     browser.close()
 
-# Sauvegarde ICS avec pliage des lignes >75 caractères
-with open("calendar.ics", "w", encoding="utf-8") as f:
+# Sauvegarde ICS avec pliage correct des lignes >75 caractères
+with open("calendar.ics", "w", encoding="utf-8", newline="\r\n") as f:
     for line in cal.serialize_iter():
+        line = line.replace("\n", "")  # retirer sauts de ligne internes
         while len(line) > 75:
             f.write(line[:75] + "\r\n ")
             line = line[75:]
         f.write(line + "\r\n")
 
-print("✅ calendar.ics généré avec DTSTAMP et lignes pliées !")
+print("✅ calendar.ics généré avec DTSTAMP, caractères échappés et lignes pliées !")
